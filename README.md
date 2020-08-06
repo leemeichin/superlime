@@ -1,39 +1,66 @@
 # Superlime
 
-Welcome to your new gem! In this directory, you'll find the files you need to be able to package up your Ruby library into a gem. Put your Ruby code in the file `lib/superlime`. To experiment with that code, run `bin/console` for an interactive prompt.
-
-TODO: Delete this and the text above, and describe your gem
-
-## Installation
-
-Add this line to your application's Gemfile:
-
-```ruby
-gem 'superlime'
-```
-
-And then execute:
-
-    $ bundle install
-
-Or install it yourself as:
-
-    $ gem install superlime
+A replacement for [Rectify::Command](https://github.com/andypike/rectify#commands) that uses Ruby 2.7 pattern matching in place of events.
+Uses a mostly-compatible API.
 
 ## Usage
 
-TODO: Write usage instructions here
+When creating a command, have it inherit from `Superlime::Command` (instead of `Rectify::Command` if refactoring).
 
-## Development
+```ruby
+class Payment::Send < Superlime::Command
+  attr_reader :params
+  
+  def initialize(params)
+    @params = params
+  end
 
-After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake test` to run the tests. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
+  def call
+    broadcast(:no_payee) if params[:payee].nil?
+    transaction = make_payment!
+    broadcast(:success, tx_id: transaction.id)
+  rescue StandardError => err
+    broadcast(:error, err)
+  end
+  
+  private 
 
-To install this gem onto your local machine, run `bundle exec rake install`. To release a new version, update the version number in `version.rb`, and then run `bundle exec rake release`, which will create a git tag for the version, push git commits and tags, and push the `.gem` file to [rubygems.org](https://rubygems.org).
+  def make_payment!
+    # do the payment...
+    # raise if payment_failed 
+  end 
+end
+```
+
+The behaviour is mostly the same, except you don't require a `return` invocation when calling `broadcast`.
+
+In order to use this command, you can use Ruby's brand new pattern matching niceness. It's a little bit different but
+offers a lot of flexibility depending on the complexity of your command.
+
+```ruby
+class PaymentController < ApplicationController
+  def create
+    case Payment::Send.call(payment_params)
+    in success: result then render json: result
+    in :no_payee then head :bad_request
+    in error: StandardError => err then render json: err.message, status: :internal_server_error
+    end
+  end
+
+  private
+
+  def payment_params
+    params.require(:payment).permit(:payee, :card_details_and_stuff)
+  end
+end
+```
+
+Ruby's pattern matching allows you to match against types, hashes, arrays, while also being able to destructure them,
+so these destructurings can be as simple or complex as you like (including destructuring of custom classes).
 
 ## Contributing
 
-Bug reports and pull requests are welcome on GitHub at https://github.com/[USERNAME]/superlime.
-
+Bug reports and pull requests are welcome on GitHub at https://github.com/mrleedev/superlime.
 
 ## License
 

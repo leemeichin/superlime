@@ -4,15 +4,17 @@ require 'superlime'
 module Superlime
   class CommandTest < MiniTest::Test
     TestCommand = Class.new(Superlime::Command) do
+      attr_reader :params
+
       def initialize(params)
         @params = params
       end
 
       def call
-        if @params[:fail]
-          broadcast(:failed, @params[:fail])
-        elsif @params[:success]
-          broadcast(:succeeded, @params[:success])
+        if params[:fail]
+          broadcast(:failed, params[:fail])
+        elsif params[:success]
+          broadcast(:succeeded, params[:success])
         end
       end
     end
