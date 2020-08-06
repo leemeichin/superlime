@@ -19,8 +19,8 @@ class Payment::Send < Superlime::Command
     broadcast(:no_payee) if params[:payee].nil?
     transaction = make_payment!
     broadcast(:success, tx_id: transaction.id)
-  rescue StandardError => err
-    broadcast(:error, err)
+  rescue PaymentError, SomeSillyError => err
+    broadcast(:error, err)    
   end
   
   private 
@@ -43,7 +43,8 @@ class PaymentController < ApplicationController
     case Payment::Send.call(payment_params)
     in success: result then render json: result
     in :no_payee then head :bad_request
-    in error: StandardError => err then render json: err.message, status: :internal_server_error
+    in error: PaymentError => err then render json: err.message, status: :internal_server_error
+    in error: SomeSillyError then redirect_to 'http://www.zombo.com'
     end
   end
 
